@@ -8,6 +8,8 @@
 
 VoiceTransl 聆译是一站式离线 AI 视频字幕生成和翻译软件，支持 **macOS（Apple Silicon）**。从视频下载，音频提取，听写打轴，字幕翻译，视频合成，字幕总结各个环节为翻译者提供便利。本项目基于 [GalTransl](https://github.com/xd2333/GalTransl)，采用 GPLv3 许可，是 [shinnpuru/VoiceTransl](https://github.com/shinnpuru/VoiceTransl) 的 macOS 移植版本。
 
+> **本项目的 macOS 移植工作（包括代码适配、构建打包、文档撰写与 Release 发布）完全由 AI 完成**，未经人工逐行审查。如发现移植缺陷或兼容性问题，欢迎提 Issue 反馈。
+
 ## 特色
 
 * 支持多种翻译模型，包括在线模型（任意 OpenAI 兼容接口）和本地模型（Sakura、GalTransl 及 Ollama、Llama.cpp）。
@@ -26,11 +28,6 @@ VoiceTransl 聆译是一站式离线 AI 视频字幕生成和翻译软件，支�
 
 <div align=center><img src="title.jpg" alt="macOS 主界面截图" style="width:512px;"/></div>
 
-## 在线镜像
-
-打开即用的 AI 翻译，与配置环境说拜拜，推荐大家使用优云智算算力租赁平台。万卡 4090 超多好玩免费的镜像给大家免费体验，高性价比算力租赁平台，上市公司 ucloud 旗下，专业有保障。点击链接直达[镜像地址](https://www.compshare.cn/images/compshareImage-16qc028dgfoh?referral_code=1RFfR2FQ2FyEVRJMyrOn5d&ytag=GPU_YY-GH_simple)，使用说明请看
-[视频教程](https://b23.tv/qN9bDHi)。使用昕蒲邀请链接注册可得实名 20 增金+链接注册 20+高校企业认证再得 10，还可享 95 折，4090 一小时只要 1.98 ：[邀请链接](https://passport.compshare.cn/register?referral_code=1RFfR2FQ2FyEVRJMyrOn5d&ytag=simple_bilibili)
-
 ## 下载地址
 
 下载最新版本的 [VoiceTransl for macOS](https://github.com/Eiranya/VoiceTransl_Apple-silicon/releases/)，将 `VoiceTransl.app` 拖入「应用程序」即可使用。
@@ -41,33 +38,22 @@ VoiceTransl 聆译是一站式离线 AI 视频字幕生成和翻译软件，支�
 
 ## 模型文件
 
-本仓库仅包含源代码与运行时引擎，**不包含主 ASR 模型权重文件**。以下组件已随 dmg 捆绑，开箱即用：
+本仓库及安装镜像**不包含任何模型权重文件**（GGUF 等）。首次运行前，请自行从原仓库或下方链接下载所需模型，放入 `crispasr/` 目录：
 
-- **CrispASR 推理引擎**（`crispasr/crispasr`）
-- **llama.cpp 推理库**（`llama/`）
-- **FFmpeg 多媒体工具**（`ffmpeg/ffmpeg`、`ffmpeg/ffprobe`）
-- **Canary CTC 强制对齐器 GGUF**（`crispasr/canary-ctc-aligner-q4_k.gguf`）
+该目录位于应用包内 `VoiceTransl.app/Contents/Resources/crispasr/`（右键应用 →「显示包内容」即可访问；若应用安装在「应用程序」中，需先解除只读或将该目录改为可写）。
 
-首次运行前，只需将主语音识别模型（Qwen3-ASR-1.7B 等）下载并放入 `crispasr/` 目录。该目录位于应用包内 `VoiceTransl.app/Contents/Resources/crispasr/`（右键应用 →「显示包内容」即可访问；若应用安装在「应用程序」中，需先解除只读或将该目录改为可写）。
-
-| 文件 | 放置路径（相对 `crispasr/`） | 大致体积 | 来源 / 状态 |
+| 文件 | 放置路径（相对 `crispasr/`） | 大致体积 | 下载来源 |
 | --- | --- | --- | --- |
-| CrispASR 推理引擎 | `crispasr/crispasr` | ~38 MB | [CrispStrobe/CrispASR](https://github.com/CrispStrobe/CrispASR)（下载 `crispasr-macos.tar.gz`，**仅 arm64**）— 已捆绑 |
-| Qwen3-ASR-1.7B 语音识别模型（GGUF, q4_k） | `crispasr/qwen3-asr-1.7b-q4_k.gguf` | ~1.4 GB | [cstr/qwen3-asr-1.7b-GGUF](https://huggingface.co/cstr/qwen3-asr-1.7b-GGUF) — 需下载 |
-| Qwen3-ASR-1.7B 日语动画微调（GGUF, q4_k，可选） | `crispasr/qwen3-asr-1.7b-ja-anime-q4_k.gguf` | ~1.4 GB | [cstr/qwen3-asr-1.7b-GGUF](https://huggingface.co/cstr/qwen3-asr-1.7b-GGUF) — 可选 |
-| Canary CTC 强制对齐器（GGUF, q4_k） | `crispasr/canary-ctc-aligner-q4_k.gguf` | ~392 MB | [cstr/canary-ctc-aligner-GGUF](https://huggingface.co/cstr/canary-ctc-aligner-GGUF) — **已随 dmg 捆绑** |
-| FFmpeg 多媒体工具 | `ffmpeg/ffmpeg`、`ffmpeg/ffprobe` | ~153 MB | 已随 dmg 捆绑 |
-| llama.cpp 推理库 | `llama/`（含 `libggml*`、`llama-server`） | ~17 MB | 已随 dmg 捆绑 |
+| Qwen3-ASR-1.7B 语音识别模型（GGUF, q4_k） | `qwen3-asr-1.7b-q4_k.gguf` | ~1.4 GB | [夸克网盘](https://pan.quark.cn/s/0dafa8663ee5#/list/share) |
+| Qwen3-ASR-1.7B 日语动画微调（GGUF, q4_k，可选） | `qwen3-asr-1.7b-ja-anime-q4_k.gguf` | ~1.4 GB | [夸克网盘](https://pan.quark.cn/s/0dafa8663ee5#/list/share) |
+| Canary CTC 强制对齐器（GGUF, q4_k） | `canary-ctc-aligner-q4_k.gguf` | ~392 MB | [cstr/canary-ctc-aligner-GGUF](https://huggingface.co/cstr/canary-ctc-aligner-GGUF) |
 
 > 说明：CrispASR 上游仅提供 **arm64** 版本，因此本 macOS 构建仅支持 Apple Silicon（M 系列）芯片；Intel Mac 无法使用该 ASR 引擎。
 
 **缺失文件时的现象：**
-- 未放置 `crispasr/crispasr` 或主 ASR 模型（`qwen3-asr-1.7b-q4_k.gguf`）：开始听写/翻译时会报错提示找不到 ASR 引擎或模型，无法生成字幕；程序其余界面仍可正常打开。
+- 未放置主 ASR 模型（`qwen3-asr-1.7b-q4_k.gguf`）：开始听写/翻译时会报错提示找不到模型，无法生成字幕；程序其余界面仍可正常打开。
 - 未放置 `ffmpeg/ffmpeg`：提取音频、视频合成等依赖 ffmpeg 的步骤会失败，程序会提示「未找到 ffmpeg」。
-- `llama/` 目录缺失：若使用 llama.cpp 后端做对齐会报错；使用 CrispASR 对齐流程时不受影响。
-- Canary 对齐器已随 dmg 捆绑，无需单独下载；如误删 `crispasr/canary-ctc-aligner-q4_k.gguf`，CrispASR 断句对齐将无法工作（SRT 时间戳会被清零）。
-
-主 ASR 模型等权重文件（`.gguf`）已在 `.gitignore` 中忽略，不会随仓库提交；请按上表自行下载补充。
+- 未放置 Canary 对齐器：CrispASR 断句对齐将无法正常工作（SRT 时间戳会被清零）。
 
 ## 对比原版 VoiceTransl 的修改
 
@@ -77,9 +63,9 @@ VoiceTransl 聆译是一站式离线 AI 视频字幕生成和翻译软件，支�
 | --- | --- | --- |
 | 支持平台 | Windows（x64） | macOS（Apple Silicon / arm64） |
 | 安装形式 | Windows 安装程序（NSIS），运行 `VoiceTransl.exe` | `.dmg` 磁盘镜像，拖入「应用程序」 |
-| ASR 引擎 | 早期 whisper.cpp / faster-whisper；新版本亦采用 CrispASR | CrispASR（Qwen3-ASR + CTC 强制对齐），已捆绑 |
+| ASR 引擎 | 早期 whisper.cpp / faster-whisper；新版本亦采用 CrispASR | CrispASR（Qwen3-ASR + CTC 强制对齐） |
 | 运行时引擎 | 需自行配置 | CrispASR / llama.cpp / FFmpeg 随 dmg 捆绑 |
-| 强制对齐器 | 视版本而定 | Canary CTC 对齐器 GGUF 已随 dmg 捆绑（开箱即用） |
+| 模型文件 | 随安装包分发 | **不包含**，用户自行下载放入 `crispasr/` |
 | 界面框架 | PyQt5 + PyQt-Fluent-Widgets | 同，但适配 macOS HIG：系统原生红绿灯标题栏、Finder 风格导航面板 |
 | 模型目录 | 多为 `qwen3-asr-1.7b/` 等 | 本分支将 ASR 模型与对齐器统一放在 `crispasr/` 目录 |
 | 系统关机 / 路径 | Windows 专用逻辑 | 改用 `osascript` 等 macOS 原生调用 |
