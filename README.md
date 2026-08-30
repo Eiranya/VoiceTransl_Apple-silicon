@@ -42,6 +42,28 @@ VoiceTransl聆译是一站式离线AI视频字幕生成和翻译软件，支持W
 
 使用说明请见 [视频教程](https://www.bilibili.com/video/BV12FjN6iEmz)。
 
+## 模型文件
+
+本仓库仅包含源代码与运行时引擎，**不包含模型权重文件**。首次运行前，请将以下文件下载并放置到对应目录（路径均相对于项目根目录）。
+
+| 文件 | 放置路径（相对项目根目录） | 大致体积 | 官方来源 |
+| --- | --- | --- | --- |
+| CrispASR 推理引擎 | `crispasr/crispasr` | ~38 MB | [CrispStrobe/CrispASR](https://github.com/CrispStrobe/CrispASR)（下载 `crispasr-macos.tar.gz`，**仅 arm64**） |
+| Qwen3-ASR-1.7B 语音识别模型（GGUF, q4_k） | `qwen3-asr-1.7b/qwen3-asr-1.7b-q4_k.gguf` | ~1.4 GB | [cstr/qwen3-asr-1.7b-GGUF](https://huggingface.co/cstr/qwen3-asr-1.7b-GGUF) |
+| Qwen3-ASR-1.7B 日语动画微调（GGUF, q4_k，可选） | `qwen3-asr-1.7b/qwen3-asr-1.7b-ja-anime-q4_k.gguf` | ~1.4 GB | [cstr/qwen3-asr-1.7b-GGUF](https://huggingface.co/cstr/qwen3-asr-1.7b-GGUF) |
+| Canary CTC 强制对齐器（GGUF, q4_k） | `qwen3-asr-1.7b/canary-ctc-aligner-q4_k.gguf` | ~392 MB | [cstr/canary-ctc-aligner-GGUF](https://huggingface.co/cstr/canary-ctc-aligner-GGUF) |
+| FFmpeg 多媒体工具 | `ffmpeg/ffmpeg`、`ffmpeg/ffprobe` | ~153 MB | 系统安装或放置于 `ffmpeg/` 目录 |
+| llama.cpp 推理库 | `llama/`（含 `libggml*`、`llama-server`） | ~17 MB | 随 CrispASR 一并提供 |
+
+> 说明：CrispASR 上游仅提供 **arm64** 版本，因此本 macOS 构建仅支持 Apple Silicon（M 系列）芯片；Intel Mac 无法使用该 ASR 引擎。
+
+**缺失文件时的现象：**
+- 未放置 `crispasr/crispasr` 或 `qwen3-asr-1.7b/*.gguf`：开始听写/翻译时会报错提示找不到 ASR 引擎或模型，无法生成字幕；程序其余界面仍可正常打开。
+- 未放置 `ffmpeg/ffmpeg`：提取音频、视频合成等依赖 ffmpeg 的步骤会失败，程序会提示「未找到 ffmpeg」。
+- `llama/` 目录缺失：若使用 llama.cpp 后端做对齐会报错；使用 CrispASR 对齐流程时不受影响。
+
+模型权重文件（`.gguf` 等）已在 `.gitignore` 中忽略，不会随仓库提交；请按上表自行下载补充。
+
 ## 声明
 
 本软件仅供学习交流使用，不得用于商业用途。本软件不对任何使用者的行为负责，不保证翻译结果的准确性。使用本软件即代表您同意自行承担使用本软件的风险，包括但不限于版权风险、法律风险等。请遵守当地法律法规，不要使用本软件进行任何违法行为。

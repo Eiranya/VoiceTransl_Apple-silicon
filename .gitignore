@@ -29,3 +29,19 @@ _xxl_data
 project/config.yaml
 separate/
 crispasr
+
+# --- 模型 / 权重文件（不进仓库，用户自行下载，详见 README「模型文件」）---
+*.pt
+*.pth
+*.onnx
+# ASR 模型权重目录（含 qwen3-asr-1.7b / canary 对齐器 / ja-anime 等 GGUF，单个可达 ~1.5GB）
+qwen3-asr-1.7b/
+
+# --- macOS 运行时二进制依赖（引擎/工具，非权重；体积大，不进仓库）---
+llama/libggml*
+llama/llama-server
+ffmpeg/ffmpeg
+ffmpeg/ffprobe
+
+# --- macOS 系统文件 ---
+.DS_Store
