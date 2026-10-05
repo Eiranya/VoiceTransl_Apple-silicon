@@ -18,7 +18,11 @@ python_embeded/
 faster-whisper*/
 build/
 dist/
-translate/
+# translate/ 与 separate/ 既存放 PyInstaller 冻结产物（体积大，不进仓库），
+# 又被 app-macos.spec 当作 datas 来源，且目录本身必须存在否则打包/启动会报错，
+# 因此只忽略目录内容、放行其中的 *.md 占位与说明文件。
+translate/*
+!translate/*.md
 whisper-faster/whisper-faster.exe
 *.dll
 *.exe
@@ -27,7 +31,8 @@ whisper-faster/whisper-faster.exe
 # Faster Whisper XXL
 _xxl_data
 project/config.yaml
-separate/
+separate/*
+!separate/*.md
 crispasr
 
 # --- 模型 / 权重文件（不进仓库，用户自行下载，详见 README「模型文件」）---

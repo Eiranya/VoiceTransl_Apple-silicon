@@ -38,7 +38,7 @@ VoiceTransl 聆译是一站式离线 AI 视频字幕生成和翻译软件，支�
 
 ## 模型文件
 
-本仓库及安装镜像**不包含任何模型权重文件**（GGUF 等）。首次运行前，请自行从原仓库或下方链接下载所需模型，放入 `crispasr/` 目录：
+本仓库不包含模型权重文件。安装镜像（dmg）中**已捆绑 Canary CTC 强制对齐器**，开箱即用；**ASR 语音识别模型需自行下载**，放入 `crispasr/` 目录：
 
 该目录位于应用包内 `VoiceTransl.app/Contents/Resources/crispasr/`（右键应用 →「显示包内容」即可访问；若应用安装在「应用程序」中，需先解除只读或将该目录改为可写）。
 
@@ -46,14 +46,17 @@ VoiceTransl 聆译是一站式离线 AI 视频字幕生成和翻译软件，支�
 | --- | --- | --- | --- |
 | Qwen3-ASR-1.7B 语音识别模型（GGUF, q4_k） | `qwen3-asr-1.7b-q4_k.gguf` | ~1.4 GB | [夸克网盘](https://pan.quark.cn/s/0dafa8663ee5#/list/share) |
 | Qwen3-ASR-1.7B 日语动画微调（GGUF, q4_k，可选） | `qwen3-asr-1.7b-ja-anime-q4_k.gguf` | ~1.4 GB | [夸克网盘](https://pan.quark.cn/s/0dafa8663ee5#/list/share) |
-| Canary CTC 强制对齐器（GGUF, q4_k） | `canary-ctc-aligner-q4_k.gguf` | ~392 MB | [cstr/canary-ctc-aligner-GGUF](https://huggingface.co/cstr/canary-ctc-aligner-GGUF) |
+| Canary CTC 强制对齐器（GGUF, q4_k） | `canary-ctc-aligner-q4_k.gguf` | ~392 MB | **已随 dmg 捆绑**，无需下载 |
 
 > 说明：CrispASR 上游仅提供 **arm64** 版本，因此本 macOS 构建仅支持 Apple Silicon（M 系列）芯片；Intel Mac 无法使用该 ASR 引擎。
 
 **缺失文件时的现象：**
 - 未放置主 ASR 模型（`qwen3-asr-1.7b-q4_k.gguf`）：开始听写/翻译时会报错提示找不到模型，无法生成字幕；程序其余界面仍可正常打开。
 - 未放置 `ffmpeg/ffmpeg`：提取音频、视频合成等依赖 ffmpeg 的步骤会失败，程序会提示「未找到 ffmpeg」。
-- 未放置 Canary 对齐器：CrispASR 断句对齐将无法正常工作（SRT 时间戳会被清零）。
+- Canary 对齐器已随 dmg 捆绑，无需单独下载；如误删 `crispasr/canary-ctc-aligner-q4_k.gguf`，CrispASR 断句对齐将无法工作（SRT 时间戳会被清零）。
+- 未放置 UVR 人声分离权重（可选）：仅「伴奏分离模型」下拉框为空、人声分离不可用，其余功能不受影响。
+
+**人声分离（UVR）模型的放置位置：** `VoiceTransl.app/Contents/Resources/separate/`。自行下载 UVR 系列 `.onnx` 权重（如 `UVR-MDX-NET-Inst_HQ_3.onnx`）放入该目录后重启应用即可选择使用；dmg 中已捆绑 `onnxruntime`（含 CoreML 加速），无需额外安装依赖。
 
 ## 对比原版 VoiceTransl 的修改
 
@@ -65,7 +68,7 @@ VoiceTransl 聆译是一站式离线 AI 视频字幕生成和翻译软件，支�
 | 安装形式 | Windows 安装程序（NSIS），运行 `VoiceTransl.exe` | `.dmg` 磁盘镜像，拖入「应用程序」 |
 | ASR 引擎 | 早期 whisper.cpp / faster-whisper；新版本亦采用 CrispASR | CrispASR（Qwen3-ASR + CTC 强制对齐） |
 | 运行时引擎 | 需自行配置 | CrispASR / llama.cpp / FFmpeg 随 dmg 捆绑 |
-| 模型文件 | 随安装包分发 | **不包含**，用户自行下载放入 `crispasr/` |
+| 模型文件 | 随安装包分发 | ASR 模型**不包含**（自行下载放入 `crispasr/`）；Canary 对齐器已随 dmg 捆绑 |
 | 界面框架 | PyQt5 + PyQt-Fluent-Widgets | 同，但适配 macOS HIG：系统原生红绿灯标题栏、Finder 风格导航面板 |
 | 模型目录 | 多为 `qwen3-asr-1.7b/` 等 | 本分支将 ASR 模型与对齐器统一放在 `crispasr/` 目录 |
 | 系统关机 / 路径 | Windows 专用逻辑 | 改用 `osascript` 等 macOS 原生调用 |
