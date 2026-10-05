@@ -11,12 +11,14 @@ _ORIGINAL_STDOUT = sys.stdout
 _ORIGINAL_STDERR = sys.stderr
 from app import (
     UIMessageQueue,
+    ONLINE_TRANSLATOR_MAPPING,
     _TranslationLogParser,
     _clean_control_chars,
     _compose_output_format,
     _decode_subprocess_line,
     _find_available_local_port,
     _line_passes_filter,
+    _normalize_openai_base_url,
     _set_command_option,
     _split_command_template,
     _split_output_format,
@@ -108,6 +110,76 @@ class MessageQueueAndLogParserTests(unittest.TestCase):
         queue = Queue()
         _stream_proc_to_queue(Proc(), queue, label="worker")
         self.assertEqual(queue.items, [("detail", "[worker] error")])
+
+
+class OpenAITranslatorUrlTests(unittest.TestCase):
+    """「测试API」按钮与真实翻译必须推导出同一个 base URL。
+
+    回归背景：测试按钮曾无条件拼接 ``/v1/models``，对火山方舟
+    ``/api/plan/v3``、``/api/v3`` 这类自带版本段的地址会拼成
+    ``.../api/plan/v3/v1/models`` 并误报 404，而真实翻译其实是通的。
+    """
+
+    def test_versioned_base_urls_are_kept_as_is(self):
+        for url in (
+            "https://ark.cn-beijing.volces.com/api/v3",
+            "https://ark.cn-beijing.volces.com/api/plan/v3",
+            "https://generativelanguage.googleapis.com/v1beta/openai",
+        ):
+            with self.subTest(url=url):
+                self.assertEqual(_normalize_openai_base_url(url), url)
+
+    def test_plain_hosts_get_v1_appended(self):
+        cases = {
+            "https://api.deepseek.com": "https://api.deepseek.com/v1",
+            "https://api.moonshot.cn": "https://api.moonshot.cn/v1",
+            "https://api.openai.com": "https://api.openai.com/v1",
+            "http://localhost:11434": "http://localhost:11434/v1",
+            "https://dashscope.aliyuncs.com/compatible-mode":
+                "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        }
+        for given, expected in cases.items():
+            with self.subTest(url=given):
+                self.assertEqual(_normalize_openai_base_url(given), expected)
+
+    def test_pasted_endpoint_urls_are_reduced_to_base(self):
+        cases = {
+            "https://open.bigmodel.cn/api/paas/v4/chat/completions":
+                "https://open.bigmodel.cn/api/paas/v4",
+            "https://api.deepseek.com/v1/models": "https://api.deepseek.com/v1",
+        }
+        for given, expected in cases.items():
+            with self.subTest(url=given):
+                self.assertEqual(_normalize_openai_base_url(given), expected)
+
+    def test_trailing_slash_and_blank_input(self):
+        self.assertEqual(
+            _normalize_openai_base_url("https://api.deepseek.com/"),
+            "https://api.deepseek.com/v1",
+        )
+        self.assertEqual(_normalize_openai_base_url(""), "")
+        self.assertEqual(_normalize_openai_base_url(None), "")
+
+    def test_agent_plan_url_from_bug_report(self):
+        endpoint = _normalize_openai_base_url(
+            "https://ark.cn-beijing.volces.com/api/plan/v3"
+        )
+        self.assertEqual(
+            endpoint + "/models",
+            "https://ark.cn-beijing.volces.com/api/plan/v3/models",
+        )
+        self.assertEqual(
+            endpoint + "/chat/completions",
+            "https://ark.cn-beijing.volces.com/api/plan/v3/chat/completions",
+        )
+        self.assertNotIn("/v1/", endpoint + "/models")
+
+    def test_presets_never_add_v1_to_a_versioned_host(self):
+        for name in ("豆包", "豆包 (Agent Plan)"):
+            with self.subTest(preset=name):
+                endpoint = _normalize_openai_base_url(ONLINE_TRANSLATOR_MAPPING[name])
+                self.assertNotIn("/v1", endpoint)
+                self.assertIn("/api/", endpoint)
 
 
 if __name__ == "__main__":

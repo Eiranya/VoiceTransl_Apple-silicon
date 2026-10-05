@@ -301,7 +301,8 @@ ONLINE_TRANSLATOR_MAPPING = {
     'Deepseek': 'https://api.deepseek.com',
     'Minimax': 'https://api.minimaxi.com',
     'Minimax (国际)': 'https://api.minimaxi.io',
-    '豆包': 'https://ark.cn-beijing.volces.com/api',
+    '豆包': 'https://ark.cn-beijing.volces.com/api/v3',
+    '豆包 (Agent Plan)': 'https://ark.cn-beijing.volces.com/api/plan/v3',
     '阿里云': 'https://dashscope.aliyuncs.com/compatible-mode',
     'Gemini': 'https://generativelanguage.googleapis.com/v1beta/openai',
     'OpenAI': 'https://api.openai.com',
@@ -322,6 +323,71 @@ ONLINE_TRANSLATOR_SUPPORTED = [
     translator for translator in TRANSLATOR_SUPPORTED
     if translator not in LOCAL_TRANSLATOR_SUPPORTED
 ]
+
+
+def _normalize_openai_base_url(url: str) -> str:
+    """把用户填写的地址归一化成 OpenAI SDK 的 base_url。
+
+    规则必须与 GalTransl/COpenAI.py 完全一致：地址已含 /vN 版本段就原样使用
+    （火山方舟 /api/v3、/api/plan/v3、Gemini /v1beta/openai），否则补 /v1。
+    测试按钮与真实翻译共用这套规则，才不会出现「测试报 404、翻译却能跑通」
+    的误报。
+    """
+    endpoint = (url or '').strip().rstrip('/')
+    if not endpoint:
+        return ''
+    # 用户可能直接粘贴完整的接口地址，先剥掉末尾的接口段
+    for suffix in ('/chat/completions', '/completions', '/models'):
+        if endpoint.endswith(suffix):
+            endpoint = endpoint[: -len(suffix)].rstrip('/')
+            break
+    if not re.search(r'/v\d+', endpoint):
+        endpoint += '/v1'
+    return endpoint
+
+
+def _fetch_model_ids(models_url: str, headers: dict):
+    """请求 /models，返回 (模型 ID 列表, 失败时用于展示的响应片段)。"""
+    try:
+        resp = requests.get(models_url, headers=headers, timeout=20)
+        if resp.status_code >= 400:
+            return [], resp.text[:500].replace('\n', ' ')
+        data = resp.json()
+    except Exception as error:
+        return [], str(error)[:500]
+
+    ids = []
+    if isinstance(data, dict) and isinstance(data.get('data'), list):
+        for item in data['data']:
+            if isinstance(item, dict) and item.get('id'):
+                ids.append(item['id'])
+    if ids:
+        return ids, ''
+    return [], str(data)[:500].replace('\n', ' ')
+
+
+def _chat_completion_reachable(chat_url: str, headers: dict, model: str) -> bool:
+    """用一次极简 chat/completions 判断服务商是否真的可用。
+
+    部分服务商（如火山方舟 Agent Plan）不实现 /models 列表接口，只测 /models
+    会把可用的服务误判为故障，因此需要这条不依赖 /models 的探测路径。
+    """
+    if not model:
+        return False
+    try:
+        resp = requests.post(
+            chat_url,
+            headers=headers,
+            json={
+                'model': model,
+                'messages': [{'role': 'user', 'content': 'hi'}],
+                'max_tokens': 1,
+            },
+            timeout=60,
+        )
+    except Exception:
+        return False
+    return resp.status_code < 400
 
 
 def _compose_output_format(content_type, file_type, enable_translation):
@@ -3400,9 +3466,12 @@ class MainWorker(QObject):
             self.finished.emit()
             return
 
-        base_url = base_url.rstrip('/') + '/v1/models'
+        # 与 GalTransl/COpenAI.py 同一套归一化规则：测的就是真实翻译会请求的地址
+        endpoint = _normalize_openai_base_url(base_url)
+        models_url = f'{endpoint}/models'
+        chat_url = f'{endpoint}/chat/completions'
 
-        self._emit_status(_("status_api_testing", url=base_url))
+        self._emit_status(_("status_api_testing", url=models_url))
         try:
             if proxy_address:
                 os.environ['HTTP_PROXY'] = proxy_address
@@ -3416,31 +3485,17 @@ class MainWorker(QObject):
                 'Content-Type': 'application/json'
             }
 
-            resp = requests.get(base_url, headers=headers, timeout=20)
-            resp.raise_for_status()
+            models, failure_body = _fetch_model_ids(models_url, headers)
 
-            models = []
-            parse_error = False
-            try:
-                data = resp.json()
-                if isinstance(data, dict) and 'data' in data:
-                    for item in data['data']:
-                        if isinstance(item, dict) and 'id' in item:
-                            models.append(item['id'])
-                if models:
-                    self.show_model_dialog.emit(models)
-                    self._emit_status(_("status_api_complete", count=len(models)))
-                else:
-                    parse_error = True
-            except Exception:
-                parse_error = True
-
-            if parse_error:
-                try:
-                    body = resp.text[:500].replace('\n', ' ')
-                except Exception:
-                    body = str(resp)[:500].replace('\n', ' ')
-                self._emit_status(_("status_api_complete_body", url=base_url, body=body))
+            if models:
+                self.show_model_dialog.emit(models)
+                self._emit_status(_("status_api_complete", count=len(models)))
+            elif _chat_completion_reachable(chat_url, headers, gpt_model):
+                # 服务商未提供 /models 列表（如火山方舟 Agent Plan），
+                # 但对话接口已返回成功 → 判定为连接正常，不再误报 404
+                self._emit_status(_("status_api_ok_via_chat", url=chat_url, model=gpt_model))
+            else:
+                self._emit_status(_("status_api_complete_body", url=models_url, body=failure_body))
         except Exception as e:
             self._emit_status(_("status_api_error", error=e))
 
