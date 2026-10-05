@@ -64,6 +64,35 @@ VoiceTransl 聆译是一站式离线 AI 视频字幕生成和翻译软件，支�
 
 **翻译模型（llama.cpp）：** 本仓库与 dmg 均**不包含**翻译模型，需自行下载 `.gguf` 权重放入离线模型目录（高级设置页点击 **「📁 打开离线模型目录」**，对应 `Contents/Frameworks/llama/` 或 `Contents/Resources/llama/`），再点 **「🔄 刷新离线模型列表」**；未放置时请使用在线翻译接口。
 
+## 构建所需的外部二进制资产（不在 Git 仓库中）
+
+本仓库**只包含源码**。下面这批文件因体积 / 许可原因未纳入版本控制（见 `.gitignore`），因此**干净 clone 后无法直接打包** —— 必须先把它们补齐，再执行 `./build-macos.sh`。
+
+补齐方式二选一：
+
+* **自动（推荐）**：`./fetch-build-assets.sh` —— 按固定版本下载，并逐个校验 sha256。
+* **手动**：按下表逐个下载，放到对应路径。
+
+| 路径 | 体积（字节） | 版本 | 下载来源 | sha256 |
+| --- | --- | --- | --- | --- |
+| `crispasr/crispasr` | 19,736,960 | 0.8.30（git `f632edf3`） | [CrispASR Releases](https://github.com/CrispStrobe/CrispASR/releases) → **v0.8.30** 的 `crispasr-macos.tar.gz` | `01d137cb8086acb8c201fd1ec0ca8c1417e47130f6260966d9389ced08751fd7` |
+| `crispasr/libc2pa_c.dylib` | 18,653,936 | 同上 | 同上（同一压缩包内） | `d16dbf18f9a66f59c0ceb61b204caca5dda21742d6e9dc304c9d0518c81ee38c` |
+| `crispasr/crispasr-quantize` | 843,152 | 同上 | 同上 | `9ed20af7e868f0904c4d5ab839e3dd8f05cff560e23f1dba5669c05973e63970` |
+| `crispasr/canary-ctc-aligner-q4_k.gguf` | 392,167,040 | q4_k | `https://huggingface.co/cstr/canary-ctc-aligner-GGUF/resolve/main/canary-ctc-aligner-q4_k.gguf`（`crispasr -am auto --auto-download` 取的也是这一个） | `43da551fd7d45c29334153bb43adcc409ad4adbf7b04c8e3bcb89200eda03790` |
+| `ffmpeg/ffmpeg` | 80,709,264 | 8.0.1-tessus（**x86_64**） | <https://evermeet.cx/ffmpeg/> | `0ae5e615a1454cba950d74c53d7d03a8618b79e66c442bf0a2cdad3c8a4e3427` |
+| `ffmpeg/ffprobe` | 80,564,672 | 同上 | 同上 | `3a41018d224a3741e7fb177a5923847d396040f10cabb006b8c6451e2c6088da` |
+| `llama/llama-server` | 9,947,472 | llama.cpp release，dylib 版本 `0.9.5`（arm64） | [llama.cpp Releases](https://github.com/ggml-org/llama.cpp/releases)（`*-macos-arm64.zip`） | `7d0829d4569b9cc765aa436585aa3626c3d79cbf46aa65b8fc820810b13068bd` |
+| `llama/libggml*.dylib`（一组，共约 5 MB） | — | 0.9.5 | 同上（同一压缩包内） | — |
+| `project/config.yaml` | 1,950 | GalTransl 翻译配置 | 由仓库内的 `project/config.example.yaml` 复制而来 | `b443238282370f19ba14e45d0165f283aafe74ebd17fcbaa7b8f228f44aa99da` |
+
+**注意事项**
+
+1. **`crispasr` 与 `llama-server` 通过 `@rpath` 加载 dylib**，必须保留整个目录结构。只把可执行文件单独拷出来，运行会报 `dyld: Library not loaded: @rpath/libc2pa_c.dylib`。
+2. **ffmpeg 这份是 x86_64**（evermeet.cx 只提供 Intel 构建），在 Apple Silicon 上靠 Rosetta 2 运行，实测可用。若换成原生 arm64 构建（如 osxexperts.net），sha256 会变，下载脚本的校验会失败。
+3. **v0.8.30 的 macOS 资产名是 `crispasr-macos.tar.gz`**，不带 `-arm64` 后缀 —— 该后缀是 0.8.39 之后才启用的命名。写脚本时别照抄最新版的资产名。
+4. `project/config.yaml` 含 API 凭据，因此被 `.gitignore` 排除。仓库提供**只含占位 key**的模板：clone 后执行 `cp project/config.example.yaml project/config.yaml` 即可。
+5. `separate/`、`translate/` 内的冻结产物以及 `build/`、`dist/` 都是构建输出，跑一次 `./build-macos.sh` 即会重新生成。**但这两个目录本身必须存在**（为空时 PyInstaller 不报错，会静默打出缺少子进程的包），仓库用 `README.md` 占位。
+
 ## 对比原版 VoiceTransl 的修改
 
 本仓库是 [shinnpuru/VoiceTransl](https://github.com/shinnpuru/VoiceTransl)（原 Windows 版）的 macOS 移植分支，主要修改如下：

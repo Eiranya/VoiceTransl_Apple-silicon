@@ -12,7 +12,9 @@ useful_tools/GalTransl_DumpInjector/config.ini
 useful_tools/GalTransl_DumpInjector/VNTextPatch/names.xml
 *.log
 venv*/
-project/
+# project/ 里的 config.yaml 含 API 凭据，不进仓库；但放行只含占位 key 的模板。
+project/*
+!project/config.example.yaml
 python_embeded/
 *.gguf
 faster-whisper*/
