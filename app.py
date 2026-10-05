@@ -74,24 +74,85 @@ NO_TRANSCRIPTION = '不进行听写'
 NO_TRANSLATION = '不进行翻译'
 
 
+def _model_dirs(name):
+    """返回某个模型子目录的候选位置列表，按优先级排序。
+
+    冻结后进程工作目录是 PyInstaller 的 sys._MEIPASS（macOS 上是
+    ``VoiceTransl.app/Contents/Frameworks``）；而 spec 里声明的 ``datas`` 会被放进
+    同级的 ``Contents/Resources``，两棵树之间只靠同名符号链接互通。
+
+    用户从 Finder「显示包内容」最先看到的是 ``Resources``，把权重直接放进去时
+    ``Frameworks`` 一侧不会有对应的链接，于是下拉框里空空如也；反过来把权重
+    放到 ``Frameworks`` 又和文档/直觉不符。因此两个位置都认，谁先找到用谁。
+    """
+    candidates = [Path(name)]
+    meipass = getattr(sys, '_MEIPASS', None)
+    if meipass:
+        candidates.append(Path(meipass).resolve().parent / 'Resources' / name)
+
+    dirs, seen = [], set()
+    for candidate in candidates:
+        key = os.path.normcase(os.path.abspath(candidate))
+        if key in seen:
+            continue
+        seen.add(key)
+        dirs.append(candidate)
+    return dirs
+
+
+def _list_model_files(name, suffix):
+    """在 :func:`_model_dirs` 给出的所有目录里列出以 suffix 结尾的文件。
+
+    结果为去重后的文件名（非完整路径），按名称排序；目录不存在时静默跳过。
+    """
+    found = set()
+    for directory in _model_dirs(name):
+        try:
+            entries = list(directory.iterdir())
+        except OSError:
+            continue
+        for entry in entries:
+            if entry.name.lower().endswith(suffix) and entry.is_file():
+                found.add(entry.name)
+    return sorted(found)
+
+
+def _resolve_model_file(model_file, name):
+    """把下拉框选中的模型名解析成真实存在的路径。
+
+    绝对路径原样返回；相对路径依次在 :func:`_model_dirs` 中查找。都找不到时退回
+    主目录下的原路径，交给下游抛出带完整路径的错误信息。
+    """
+    path = Path(model_file)
+    if path.is_absolute():
+        return path
+    for directory in _model_dirs(name):
+        candidate = directory / path
+        if candidate.is_file():
+            return candidate.resolve()
+    return Path(name).resolve() / path
+
+
 def _list_crispasr_models():
-    model_dir = Path('crispasr')
-    if not model_dir.is_dir():
-        return []
-    return sorted(
-        path.name for path in model_dir.glob('*.gguf')
-        if 'aligner' not in path.name.lower() and 'alignment' not in path.name.lower()
-    )
+    return [
+        name for name in _list_model_files('crispasr', '.gguf')
+        if 'aligner' not in name.lower() and 'alignment' not in name.lower()
+    ]
 
 
 def _list_crispasr_aligners():
-    model_dir = Path('crispasr')
-    if not model_dir.is_dir():
-        return []
-    return sorted(
-        path.name for path in model_dir.glob('*.gguf')
-        if 'aligner' in path.name.lower() or 'alignment' in path.name.lower()
-    )
+    return [
+        name for name in _list_model_files('crispasr', '.gguf')
+        if 'aligner' in name.lower() or 'alignment' in name.lower()
+    ]
+
+
+def _list_uvr_models():
+    return _list_model_files('separate', '.onnx')
+
+
+def _list_llama_models():
+    return _list_model_files('llama', '.gguf')
 
 
 def _list_crispasr_backends():
@@ -175,19 +236,17 @@ def _build_crispasr_command(
     if not executable.is_file():
         raise FileNotFoundError(f'CrispASR executable not found: {executable}')
 
-    model_path = Path(model_file)
-    if not model_path.is_absolute():
-        model_path = crispasr_dir / model_path
+    model_path = _resolve_model_file(model_file, 'crispasr')
+    if not model_path.is_file():
+        raise FileNotFoundError(f'CrispASR model not found: {model_path}')
 
     if aligner_file:
-        aligner_path = Path(aligner_file)
-        if not aligner_path.is_absolute():
-            aligner_path = crispasr_dir / aligner_path
+        aligner_path = _resolve_model_file(aligner_file, 'crispasr')
     else:
         aligners = _list_crispasr_aligners()
         if not aligners:
             raise FileNotFoundError(f'CrispASR aligner model not found in: {crispasr_dir}')
-        aligner_path = crispasr_dir / aligners[0]
+        aligner_path = _resolve_model_file(aligners[0], 'crispasr')
     if not aligner_path.is_file():
         raise FileNotFoundError(f'CrispASR aligner model not found: {aligner_path}')
 
@@ -219,11 +278,7 @@ def _format_command(command):
 
 def _build_llama_server_command(model_file, gpu_layers, param_llama, port):
     """Build the llama-server command used by both normal runs and self-tests."""
-    llama_dir = Path('llama').resolve()
-    model_path = Path(model_file)
-    if not model_path.is_absolute():
-        model_path = llama_dir / model_path
-    model_path = model_path.resolve()
+    model_path = _resolve_model_file(model_file, 'llama')
     if not model_path.is_file():
         raise FileNotFoundError(f'Offline translation model not found: {model_path}')
 
@@ -1898,7 +1953,7 @@ class MainWindow(QMainWindow):
     def refresh_uvr_model_list(self):
         if hasattr(self, 'uvr_file'):
             current_uvr = self.uvr_file.currentText()
-            uvr_lst = [i for i in os.listdir('separate') if i.endswith('onnx')]
+            uvr_lst = _list_uvr_models()
             self.uvr_file.clear()
             self.uvr_file.addItems(uvr_lst)
             if current_uvr in uvr_lst:
@@ -1907,7 +1962,7 @@ class MainWindow(QMainWindow):
     def refresh_language_model_lists(self):
         if hasattr(self, 'sakura_file'):
             current_model = self.sakura_file.currentText()
-            sakura_lst = [i for i in os.listdir('llama') if i.endswith('gguf')]
+            sakura_lst = _list_llama_models()
             self.sakura_file.clear()
             self.sakura_file.addItems(sakura_lst)
             if current_model in sakura_lst:
@@ -2819,7 +2874,7 @@ class MainWindow(QMainWindow):
         # Created here for config loading; displayed beside vocal separation.
         self.settings_uvr_label = BodyLabel(_("settings_uvr_label"))
         self.uvr_file = QComboBox()
-        uvr_lst = [i for i in os.listdir('separate') if i.endswith('onnx')]
+        uvr_lst = _list_uvr_models()
         self.uvr_file.addItems(uvr_lst)
         self.open_uvr_dir = QPushButton(_("settings_open_uvr_btn"))
         self.open_uvr_dir.clicked.connect(lambda: open_path(os.path.join(os.getcwd(),'separate')))
@@ -2878,7 +2933,7 @@ class MainWindow(QMainWindow):
         self.adv_offline_model_label = BodyLabel(_("adv_offline_model_label"))
         self.advanced_settings_layout.addWidget(self.adv_offline_model_label)
         self.sakura_file = QComboBox()
-        sakura_lst = [i for i in os.listdir('llama') if i.endswith('gguf')]
+        sakura_lst = _list_llama_models()
         self.sakura_file.addItems(sakura_lst)
         self.advanced_settings_layout.addWidget(self.sakura_file)
 
@@ -3647,6 +3702,12 @@ class MainWorker(QObject):
             self.finished.emit()
             return
 
+        uvr_model_path = _resolve_model_file(uvr_file, 'separate')
+        if not uvr_model_path.is_file():
+            self._emit_status(_("status_uvr_model_error"))
+            self.finished.emit()
+            return
+
         input_files = self.master.uvr_file_list.toPlainText()
         if input_files:
             input_files = input_files.strip().split('\n')
@@ -3658,7 +3719,7 @@ class MainWorker(QObject):
                     self.finished.emit()
 
                 self._emit_status(_("status_vocal_split_label", idx=idx+1, total=len(input_files)))
-                proc = self._start_process([*_SEPARATE_CMD, '-m', os.path.join('separate',uvr_file), input_file])
+                proc = self._start_process([*_SEPARATE_CMD, '-m', str(uvr_model_path), input_file])
                 proc.wait()
                 self._cleanup_process(proc)
 

@@ -9,6 +9,17 @@
 #   `separate/separate` 的 .app —— 而 app.py 在冻结态正是靠这两个路径启动子进程，
 #   于是翻译与人声分离功能整体失效（v1.30 曾因此发布出去）。
 #
+# 关于包内两棵目录树（排查"模型下拉框是空的"时最容易踩的坑）：
+#   PyInstaller 6 的 onedir/BUNDLE 会把**可执行文件**放进 Contents/Frameworks，
+#   把 spec 里 datas 声明的**数据文件**放进 Contents/Resources，两棵树之间只靠
+#   **同名符号链接**互通（Frameworks/<x> -> ../../Resources/<x> 或反向）。
+#   应用的 cwd 是 Frameworks（sys._MEIPASS），因此：
+#     * spec 里声明过的文件（如 Canary 对齐器）两侧都有，用户随手放的文件则**只有一侧**；
+#     * 用户从 Finder「显示包内容」进到的往往是 Resources，放进去的权重在
+#       Frameworks 侧没有对应链接 → 下拉框里看不到。
+#   app.py 里的 _model_dirs() / _resolve_model_file() 因此**同时认这两棵树**。
+#   新增模型类目录时，务必沿用这一对函数，不要再写裸的 os.listdir('xxx')。
+#
 # 用法：
 #   ./build-macos.sh          # 组装 .app
 #   ./build-macos.sh dmg      # 组装 .app 并额外生成 dmg 到 dist/
@@ -62,6 +73,7 @@ du -sh "$APP"
 
 # ---- 3. 自检：两个子可执行必须真的在包里，且能跑起来 ----------------------------
 RES="$APP/Contents/Resources"
+FWK="$APP/Contents/Frameworks"
 echo "=== [self-check] ==="
 missing=0
 for rel in "translate/translate" "separate/separate" "crispasr/crispasr" \
@@ -70,6 +82,16 @@ for rel in "translate/translate" "separate/separate" "crispasr/crispasr" \
     echo "  OK   $rel"
   else
     echo "  MISS $rel"
+    missing=1
+  fi
+done
+# 模型目录必须在 Frameworks 侧也存在：应用的 cwd 就是这里，模型列表与子进程路径
+# 都以它为基准解析。缺了它，即使用户把权重放进 Resources 也选不到（见文件头说明）。
+for rel in "crispasr" "separate" "llama"; do
+  if [ -d "$FWK/$rel" ]; then
+    echo "  OK   Frameworks/${rel}（应用 cwd 侧的模型目录）"
+  else
+    echo "  MISS Frameworks/$rel"
     missing=1
   fi
 done

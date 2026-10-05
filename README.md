@@ -38,11 +38,14 @@ VoiceTransl 聆译是一站式离线 AI 视频字幕生成和翻译软件，支�
 
 ## 模型文件
 
-本仓库不包含模型权重文件。安装镜像（dmg）中**已捆绑 Canary CTC 强制对齐器**，开箱即用；**ASR 语音识别模型需自行下载**，放入 `crispasr/` 目录：
+本仓库不包含模型权重文件。安装镜像（dmg）中**已捆绑 Canary CTC 强制对齐器**，开箱即用；**ASR 语音识别模型需自行下载**，放入应用内的 `crispasr` 目录。
 
-该目录位于应用包内 `VoiceTransl.app/Contents/Resources/crispasr/`（右键应用 →「显示包内容」即可访问；若应用安装在「应用程序」中，需先解除只读或将该目录改为可写）。
+**推荐的放置方式（最省事）：** 打开应用 →「设置」页 → 点击 **「📁 打开CrispASR目录」**，访达会直接打开正确目录，把下载好的 `.gguf` 拖进去，再点 **「🔄 刷新语音模型列表」**（或重启应用），即可在「🗣️ 识别模型」下拉框中选择。
 
-| 文件 | 放置路径（相对 `crispasr/`） | 大致体积 | 下载来源 |
+> 手动前往也可以：右键 `VoiceTransl.app` →「显示包内容」。以下两个位置**都会被识别**，任选其一即可：
+> `Contents/Frameworks/crispasr/` 或 `Contents/Resources/crispasr/`。
+
+| 文件 | 文件名 | 大致体积 | 下载来源 |
 | --- | --- | --- | --- |
 | Qwen3-ASR-1.7B 语音识别模型（GGUF, q4_k） | `qwen3-asr-1.7b-q4_k.gguf` | ~1.4 GB | [夸克网盘](https://pan.quark.cn/s/0dafa8663ee5#/list/share) |
 | Qwen3-ASR-1.7B 日语动画微调（GGUF, q4_k，可选） | `qwen3-asr-1.7b-ja-anime-q4_k.gguf` | ~1.4 GB | [夸克网盘](https://pan.quark.cn/s/0dafa8663ee5#/list/share) |
@@ -51,12 +54,15 @@ VoiceTransl 聆译是一站式离线 AI 视频字幕生成和翻译软件，支�
 > 说明：CrispASR 上游仅提供 **arm64** 版本，因此本 macOS 构建仅支持 Apple Silicon（M 系列）芯片；Intel Mac 无法使用该 ASR 引擎。
 
 **缺失文件时的现象：**
-- 未放置主 ASR 模型（`qwen3-asr-1.7b-q4_k.gguf`）：开始听写/翻译时会报错提示找不到模型，无法生成字幕；程序其余界面仍可正常打开。
+- 未放置主 ASR 模型（`qwen3-asr-1.7b-q4_k.gguf`）：「🗣️ 识别模型」下拉框为空，开始听写/翻译时会提示找不到模型，无法生成字幕；程序其余界面仍可正常打开。
 - 未放置 `ffmpeg/ffmpeg`：提取音频、视频合成等依赖 ffmpeg 的步骤会失败，程序会提示「未找到 ffmpeg」。
-- Canary 对齐器已随 dmg 捆绑，无需单独下载；如误删 `crispasr/canary-ctc-aligner-q4_k.gguf`，CrispASR 断句对齐将无法工作（SRT 时间戳会被清零）。
-- 未放置 UVR 人声分离权重（可选）：仅「伴奏分离模型」下拉框为空、人声分离不可用，其余功能不受影响。
+- Canary 对齐器已随 dmg 捆绑，无需单独下载；如误删 `canary-ctc-aligner-q4_k.gguf`，CrispASR 断句对齐将无法工作（SRT 时间戳会被清零）。
+- 未放置 UVR 人声分离权重（可选）：仅「🎤 人声分离模型」下拉框为空、人声分离不可用，其余功能不受影响。
+- 未放置翻译模型（可选）：仅离线翻译不可用，可改用在线翻译接口。
 
-**人声分离（UVR）模型的放置位置：** `VoiceTransl.app/Contents/Resources/separate/`。自行下载 UVR 系列 `.onnx` 权重（如 `UVR-MDX-NET-Inst_HQ_3.onnx`）放入该目录后重启应用即可选择使用；dmg 中已捆绑 `onnxruntime`（含 CoreML 加速），无需额外安装依赖。
+**人声分离（UVR）模型：** 与识别模型同理 —— 在「设置」页点击 **「📁 打开UVR模型目录」**，把自行下载的 UVR 系列 `.onnx` 权重（如 `UVR-MDX-NET-Inst_HQ_3.onnx`）放入，再点 **「🔄 刷新人声分离模型列表」** 或重启应用。对应的包内路径为 `Contents/Frameworks/separate/` 或 `Contents/Resources/separate/`（两者都会被识别）。dmg 中已捆绑 `onnxruntime`（含 CoreML 加速），无需额外安装依赖。
+
+**翻译模型（llama.cpp）：** 本仓库与 dmg 均**不包含**翻译模型，需自行下载 `.gguf` 权重放入离线模型目录（高级设置页点击 **「📁 打开离线模型目录」**，对应 `Contents/Frameworks/llama/` 或 `Contents/Resources/llama/`），再点 **「🔄 刷新离线模型列表」**；未放置时请使用在线翻译接口。
 
 ## 对比原版 VoiceTransl 的修改
 
