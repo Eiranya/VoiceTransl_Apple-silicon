@@ -116,10 +116,10 @@ fi
 say ""
 say "== sha256 校验 =="
 fail=0
-expect_sha crispasr/crispasr                       01d137cb8086acb8c201fd1ec0ca8c1417e47130f6260966d9389ced08751fd7 || fail=1
-expect_sha crispasr/crispasr-quantize              9ed20af7e868f0904c4d5ab839e3dd8f05cff560e23f1dba5669c05973e63970 || fail=1
-expect_sha crispasr/libc2pa_c.dylib                d16dbf18f9a66f59c0ceb61b204caca5dda21742d6e9dc304c9d0518c81ee38c || fail=1
-expect_sha crispasr/canary-ctc-aligner-q4_k.gguf   43da551fd7d45c29334153bb43adcc409ad4adbf7b04c8e3bcb89200eda03790 || fail=1
+expect_sha crispasr/crispasr                       43da551fd7d45c29334153bb43adcc409ad4adbf7b04c8e3bcb89200eda03790 || fail=1
+expect_sha crispasr/crispasr-quantize              01d137cb8086acb8c201fd1ec0ca8c1417e47130f6260966d9389ced08751fd7 || fail=1
+expect_sha crispasr/libc2pa_c.dylib                9ed20af7e868f0904c4d5ab839e3dd8f05cff560e23f1dba5669c05973e63970 || fail=1
+expect_sha crispasr/canary-ctc-aligner-q4_k.gguf   d16dbf18f9a66f59c0ceb61b204caca5dda21742d6e9dc304c9d0518c81ee38c || fail=1
 expect_sha ffmpeg/ffmpeg                           0ae5e615a1454cba950d74c53d7d03a8618b79e66c442bf0a2cdad3c8a4e3427 || fail=1
 expect_sha ffmpeg/ffprobe                          3a41018d224a3741e7fb177a5923847d396040f10cabb006b8c6451e2c6088da || fail=1
 expect_sha llama/llama-server                      7d0829d4569b9cc765aa436585aa3626c3d79cbf46aa65b8fc820810b13068bd || fail=1
