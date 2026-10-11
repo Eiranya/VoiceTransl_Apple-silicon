@@ -34,6 +34,33 @@ def _resolve_ffmpeg() -> tuple[str, str]:
     return _ffmpeg, _ffprobe
 
 _FFMPEG, _FFPROBE = _resolve_ffmpeg()
+
+
+def _parse_timestamp(text):
+    """把 HH:MM:SS.xxx / MM:SS / 纯秒数 解析为秒（float）。无法解析时返回 None。
+
+    切片工具的起止时间由用户手填，必须先验证再交给 ffmpeg，否则时间写错时
+    ffmpeg 会静默产出一个空文件并以 0 退出。
+    """
+    if not text:
+        return None
+    parts = str(text).strip().split(':')
+    try:
+        if len(parts) == 1:
+            seconds = float(parts[0])
+        elif len(parts) == 2:
+            seconds = int(parts[0]) * 60 + float(parts[1])
+        elif len(parts) == 3:
+            seconds = int(parts[0]) * 3600 + int(parts[1]) * 60 + float(parts[2])
+        else:
+            return None
+    except (TypeError, ValueError):
+        return None
+    if seconds < 0:
+        return None
+    return seconds
+
+
 from i18n import _, set_language, get_language
 from PyQt5 import QtGui, QtCore
 from PyQt5.QtCore import Qt, QThread, QObject, pyqtSignal, QTimer, QDateTime, QSize
@@ -624,11 +651,26 @@ def _stream_proc_to_queue(proc, msg_queue, label=None):
         return
     prefix = f"[{label}] " if label else ""
     try:
-        for raw in iter(stream.readline, b''):
-            if not raw:
+        # ffmpeg 的进度行以 \r 结尾而不是 \n，按行读取会把整段进度攒到进程结束后
+        # 才吐出来 —— 转码期间界面完全没反馈，用户只能以为卡死。这里按 \r 和 \n
+        # 同时切分，保证进度实时可见。
+        pending = b''
+        for chunk in iter(lambda: stream.read(4096), b''):
+            if not chunk:
                 break
-            line = _decode_subprocess_line(raw)
-            line = _clean_control_chars(_strip_ansi(line.rstrip('\n\r')))
+            pending += chunk
+            while True:
+                candidates = [i for i in (pending.find(b'\n'), pending.find(b'\r')) if i >= 0]
+                if not candidates:
+                    break
+                cut = min(candidates) + 1
+                raw, pending = pending[:cut], pending[cut:]
+                line = _decode_subprocess_line(raw)
+                line = _clean_control_chars(_strip_ansi(line.rstrip('\n\r')))
+                if line.strip():
+                    msg_queue.put("detail", prefix + line)
+        if pending:
+            line = _clean_control_chars(_strip_ansi(_decode_subprocess_line(pending).rstrip('\n\r')))
             if line.strip():
                 msg_queue.put("detail", prefix + line)
     except Exception:
@@ -3858,24 +3900,58 @@ class MainWorker(QObject):
         self._stop_requested = False
         self._stop_event.clear()
         self.save_config()
-        input_files = self.master.clip_files_list.toPlainText()
-        clip_start = self.master.clip_start_time.text()
-        clip_end = self.master.clip_end_time.text()
-        if input_files:
-            input_files = input_files.strip().split('\n')
-            for idx, input_file in enumerate(input_files):
-                if self._stop_requested:
-                    break
-                if not os.path.exists(input_file):
-                    self._emit_status(_("status_file_not_exist", file=input_file))
-                    self.finished.emit()
+        raw_files = self.master.clip_files_list.toPlainText().strip()
+        clip_start = self.master.clip_start_time.text().strip()
+        clip_end = self.master.clip_end_time.text().strip()
 
-                self._emit_status(_("status_processing_file", file=input_file, idx=idx+1, total=len(input_files)))
-                self._emit_status(_("status_clip_processing", start=clip_start, end=clip_end))
-                proc = self._start_process([_FFMPEG, '-y', '-i', input_file, '-ss', clip_start, '-to', clip_end, '-vcodec', 'libx264', '-acodec', 'aac', os.path.join(*(input_file.split('.')[:-1]))+'_clip.'+input_file.split('.')[-1]])
-                proc.wait()
-                self._cleanup_process(proc)
-                self._emit_status(_("status_clip_done"))
+        # 输入为空时旧实现会「静默什么都不做」，用户完全无从判断，这里必须显式提示。
+        if not raw_files:
+            self._emit_status(_("status_clip_no_input"))
+            self.finished.emit()
+            return
+
+        start_sec = _parse_timestamp(clip_start)
+        end_sec = _parse_timestamp(clip_end)
+        if start_sec is None or end_sec is None:
+            self._emit_status(_("status_clip_bad_time"))
+            self.finished.emit()
+            return
+        duration = end_sec - start_sec
+        if duration <= 0:
+            self._emit_status(_("status_clip_bad_range"))
+            self.finished.emit()
+            return
+
+        input_files = [line.strip() for line in raw_files.split('\n') if line.strip()]
+        for idx, input_file in enumerate(input_files):
+            if self._stop_requested:
+                break
+            if not os.path.exists(input_file):
+                self._emit_status(_("status_file_not_exist", file=input_file))
+                # 旧实现这里缺 continue，会拿不存在的路径继续往下跑 ffmpeg。
+                continue
+
+            self._emit_status(_("status_processing_file", file=input_file, idx=idx+1, total=len(input_files)))
+            self._emit_status(_("status_clip_processing", start=clip_start, end=clip_end))
+            # 用 splitext 而不是 split('.')[:-1]：目录名含点时会拼出错误路径。
+            root, ext = os.path.splitext(input_file)
+            output_file = root + '_clip' + ext
+            # ★ -ss 必须放在 -i 之前：作为输出选项时 ffmpeg 会从 0 一路解码到结束点，
+            #   长视频要等很久；放在 -i 前是输入定位（关键帧跳转），几乎是瞬时的。
+            #   相应地把 -to 换成 -t（时长），避免 -ss 提前后 -to 的参照基准发生变化。
+            proc = self._start_process(
+                [_FFMPEG, '-y', '-ss', clip_start, '-i', input_file,
+                 '-t', f'{duration:.3f}',
+                 '-vcodec', 'libx264', '-acodec', 'aac', output_file]
+            )
+            proc.wait()
+            self._cleanup_process(proc)
+            # ★ 区间超出视频长度时 ffmpeg 会正常退出（exit 0）并留下一个只有头部的空文件，
+            #   旧实现照样报「切片完成」，用户只看到空文件。这里必须实测产物。
+            if not os.path.exists(output_file) or os.path.getsize(output_file) < 1024:
+                self._emit_status(_("status_clip_empty_output", file=output_file))
+            else:
+                self._emit_status(_("status_clip_done_file", file=output_file))
         self.finished.emit()
 
     @error_handler
