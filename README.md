@@ -75,10 +75,10 @@ VoiceTransl 聆译是一站式离线 AI 视频字幕生成和翻译软件，支�
 
 | 路径 | 体积（字节） | 版本 | 下载来源 | sha256 |
 | --- | --- | --- | --- | --- |
-| `crispasr/crispasr` | 19,736,960 | 0.8.30（git `f632edf3`） | [CrispASR Releases](https://github.com/CrispStrobe/CrispASR/releases) → **v0.8.30** 的 `crispasr-macos.tar.gz` | `01d137cb8086acb8c201fd1ec0ca8c1417e47130f6260966d9389ced08751fd7` |
-| `crispasr/libc2pa_c.dylib` | 18,653,936 | 同上 | 同上（同一压缩包内） | `d16dbf18f9a66f59c0ceb61b204caca5dda21742d6e9dc304c9d0518c81ee38c` |
-| `crispasr/crispasr-quantize` | 843,152 | 同上 | 同上 | `9ed20af7e868f0904c4d5ab839e3dd8f05cff560e23f1dba5669c05973e63970` |
-| `crispasr/canary-ctc-aligner-q4_k.gguf` | 392,167,040 | q4_k | `https://huggingface.co/cstr/canary-ctc-aligner-GGUF/resolve/main/canary-ctc-aligner-q4_k.gguf`（`crispasr -am auto --auto-download` 取的也是这一个） | `43da551fd7d45c29334153bb43adcc409ad4adbf7b04c8e3bcb89200eda03790` |
+| `crispasr/crispasr` | 19,736,960 | 0.8.30（git `f632edf3`） | [CrispASR Releases](https://github.com/CrispStrobe/CrispASR/releases) → **v0.8.30** 的 `crispasr-macos.tar.gz` | `43da551fd7d45c29334153bb43adcc409ad4adbf7b04c8e3bcb89200eda03790` |
+| `crispasr/libc2pa_c.dylib` | 18,653,936 | 同上 | 同上（同一压缩包内） | `9ed20af7e868f0904c4d5ab839e3dd8f05cff560e23f1dba5669c05973e63970` |
+| `crispasr/crispasr-quantize` | 843,152 | 同上 | 同上 | `01d137cb8086acb8c201fd1ec0ca8c1417e47130f6260966d9389ced08751fd7` |
+| `crispasr/canary-ctc-aligner-q4_k.gguf` | 392,167,040 | q4_k | `https://huggingface.co/cstr/canary-ctc-aligner-GGUF/resolve/main/canary-ctc-aligner-q4_k.gguf`（`crispasr -am auto --auto-download` 取的也是这一个） | `d16dbf18f9a66f59c0ceb61b204caca5dda21742d6e9dc304c9d0518c81ee38c` |
 | `ffmpeg/ffmpeg` | 80,709,264 | 8.0.1-tessus（**x86_64**） | <https://evermeet.cx/ffmpeg/> | `0ae5e615a1454cba950d74c53d7d03a8618b79e66c442bf0a2cdad3c8a4e3427` |
 | `ffmpeg/ffprobe` | 80,564,672 | 同上 | 同上 | `3a41018d224a3741e7fb177a5923847d396040f10cabb006b8c6451e2c6088da` |
 | `llama/llama-server` | 9,947,472 | llama.cpp release，dylib 版本 `0.9.5`（arm64） | [llama.cpp Releases](https://github.com/ggml-org/llama.cpp/releases)（`*-macos-arm64.zip`） | `7d0829d4569b9cc765aa436585aa3626c3d79cbf46aa65b8fc820810b13068bd` |
